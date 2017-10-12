@@ -79,6 +79,27 @@ impl Environment {
         self
     }
 
+    /// Remove an entry from the variables in this environment object
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate environment;
+    ///
+    /// use std::ffi::OsString;
+    /// use std::collections::HashMap;
+    ///
+    /// let e = environment::Environment::empty().insert("foo", "bar").remove("foo").compile();
+    ///
+    /// let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
+    ///
+    /// assert_eq!(e, hash_map);
+    /// ```
+    pub fn remove<S: Into<OsString>>(mut self, key: S) -> Self {
+        self.vars.remove(&key.into());
+        self
+    }
+
     /// Compile Environment object
     pub fn compile(self) -> HashMap<OsString, OsString> {
         if self.inherit {
@@ -150,15 +171,12 @@ mod test {
 
         let y = y.insert("key", "value");
 
-        let test_hash_map = {
-            let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
-            hash_map.insert("key".into(), "value".into());
-            hash_map
-        };
+        let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
+        hash_map.insert("key".into(), "value".into());
 
         assert_eq!(
             y.compile(),
-            test_hash_map
+            hash_map
         );
     }
 
@@ -185,15 +203,12 @@ mod test {
         // In-place modification while allowing later accesses to the `Environment`
         let y = Environment::empty();
 
-        let test_hash_map = {
-            let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
-            hash_map.insert("key".into(), "value".into());
-            hash_map
-        };
+        let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
+        hash_map.insert("key".into(), "value".into());
 
         assert_eq!(
             y.clone().insert("key", "value").compile(),
-            test_hash_map
+            hash_map
         );
 
         let mut c = Command::new("printenv");
@@ -206,6 +221,19 @@ mod test {
         let output = String::from_utf8_lossy(&output.stdout);
 
         assert_eq!(output, "");
+    }
+
+    #[test]
+    fn removal() {
+        let e = Environment::empty()
+            .insert("key", "val")
+            .remove("key")
+            .compile();
+
+        assert_eq!(
+            e,
+            HashMap::new()
+        );
     }
 
     #[test]

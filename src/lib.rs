@@ -125,7 +125,6 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::borrow::Cow;
     use std::process::Command;
 
     #[test]

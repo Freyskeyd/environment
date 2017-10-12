@@ -2,5 +2,8 @@
 name = "environment"
 version = "0.1.0"
 authors = ["Freyskeyd <simon.paitrault@gmail.com>"]
+description = "Helper to deal with environment variables."
+license = "MIT"
+
 
 [dependencies]

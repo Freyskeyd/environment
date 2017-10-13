@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::iter::FromIterator;
 
 /// Structure to deal with environment variables
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -77,6 +78,22 @@ impl Environment {
         } else {
             self.vars
         }
+    }
+}
+
+impl<T: ToString, Z: ToString> FromIterator<(T, Z)> for Environment {
+    fn from_iter<I: IntoIterator<Item = (T, Z)>>(iter: I) -> Self {
+        Self {
+            vars: iter.into_iter().map(|x| x.to_environment_tuple()).collect(),
+            inherit: false,
+        }
+    }
+}
+
+impl<T: ToString, Z: ToString> Extend<(T, Z)> for Environment {
+    fn extend<I: IntoIterator<Item = (T, Z)>>(&mut self, iter: I) {
+        self.vars
+            .extend(iter.into_iter().map(|x| x.to_environment_tuple()));
     }
 }
 
@@ -232,5 +249,48 @@ mod test {
 
         assert!(output.contains("bar=vv"));
         assert!(!output.contains("bar=baz"));
+    }
+
+    #[test]
+    fn interger_value() {
+        let v = vec![("bar", 0)];
+
+        let _: Environment = v.into();
+    }
+
+    #[test]
+    fn from_iterator() {
+        let iter = (0..5).into_iter().map(|x| (format!("KEY_{}", x), x));
+
+        let env = Environment::from_iter(iter);
+
+        let expected: Vec<(OsString, OsString)> = vec![
+            ("KEY_0", "0"),
+            ("KEY_1", "1"),
+            ("KEY_2", "2"),
+            ("KEY_3", "3"),
+            ("KEY_4", "4"),
+        ].into_iter()
+            .map(|x| (x.0.into(), x.1.into()))
+            .collect();
+
+        assert_eq!(env.compile(), expected);
+    }
+
+    #[test]
+    fn extend_environment() {
+        let v = vec![("bar", "baz")];
+        let v2 = vec![("foo", "bar")];
+
+        let mut env: Environment = v.clone().into();
+
+        env.extend(v2.clone());
+
+        let expected: Vec<(OsString, OsString)> = v.into_iter()
+            .chain(v2)
+            .map(|x| (x.0.into(), x.1.into()))
+            .collect();
+
+        assert_eq!(env.compile(), expected);
     }
 }

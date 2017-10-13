@@ -25,7 +25,6 @@ use std::process::Command;
 fn main() {
     let env = Environment::inherit().insert("foo", "bar");
 
-
     let mut c = Command::new("printenv");
 
     let output = c.env_clear()
@@ -38,6 +37,33 @@ fn main() {
     assert!(output.contains("foo=bar"));
 
 }
+```
+
+Better example with `Var`:
+
+```rust
+extern crate environment;
+
+use std::process::Command;
+
+fn main() {
+    let foo: Var = ("FOO", "BAR").into();
+
+    let env = Environment::inherit()
+        .with_var(foo)
+        .var("FOO").is("BAR").append("BAZ");
+
+    let mut c = Command::new("printenv");
+
+    let output = c.env_clear()
+        .envs(env.compile())
+        .output()
+        .expect("failed to execute command");
+
+    let output = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.contains("FOO=BARBAZ"));
+
 ```
 
 ## License

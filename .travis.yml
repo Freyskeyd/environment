@@ -23,14 +23,12 @@ matrix:
       cargo +nightly-2017-10-09 fmt --all -- --write-mode=diff
 before_script:
 - |
-  pip install 'travis-cargo<0.2' --user &&
-  export PATH=$HOME/.local/bin:$PATH
+  which cargo-coverage && which cargo-coveralls || cargo install --force cargo-travis &&
+  export PATH=$HOME/.cargo/bin:$PATH
 script:
 - |
-  travis-cargo build &&
-  travis-cargo clean &&
-  travis-cargo test &&
-  travis-cargo bench
+  cargo test -- --test-threads=1 &&
+  cargo bench
 notifications:
   email:
     on_success: never

@@ -11,3 +11,4 @@ readme = "README.md"
 keywords = ["environment", "env"]
 
 [dependencies]
+regex = "0.2"

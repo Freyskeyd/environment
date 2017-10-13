@@ -1,10 +1,11 @@
 use std::ffi::OsString;
+use std::collections::HashMap;
 
 /// Structure to deal with environment variables
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Environment {
     /// Customized environment variables
-    vars: Vec<(OsString, OsString)>,
+    vars: HashMap<OsString, OsString>,
     /// Define if the structure must inherit
     inherit: bool,
 }
@@ -12,7 +13,7 @@ pub struct Environment {
 impl Default for Environment {
     fn default() -> Self {
         Self {
-            vars: vec![],
+            vars: HashMap::new(),
             inherit: false,
         }
     }
@@ -26,15 +27,16 @@ impl Environment {
     /// ```rust
     /// extern crate environment;
     /// use std::ffi::OsString;
+    /// use std::collections::HashMap;
     ///
     /// let e = environment::Environment::inherit().compile();
-    /// let e_: Vec<(OsString, OsString)> = ::std::env::vars_os().collect();
+    /// let e_: HashMap<OsString, OsString> = ::std::env::vars_os().collect();
     ///
     /// assert_eq!(e, e_);
     /// ```
     pub fn inherit() -> Self {
         Self {
-            vars: vec![],
+            vars: HashMap::new(),
             inherit: true,
         }
     }
@@ -46,8 +48,10 @@ impl Environment {
     /// ```rust
     /// extern crate environment;
     ///
+    /// use std::collections::HashMap;
+    ///
     /// let e = environment::Environment::empty().compile();
-    /// assert_eq!(e, Vec::new());
+    /// assert_eq!(e, HashMap::new());
     /// ```
     pub fn empty() -> Self {
         Self::default()
@@ -61,17 +65,43 @@ impl Environment {
     /// extern crate environment;
     ///
     /// use std::ffi::OsString;
+    /// use std::collections::HashMap;
     ///
     /// let e = environment::Environment::empty().insert("foo", "bar").compile();
-    /// assert_eq!(e, vec![(OsString::from("foo"), OsString::from("bar"))]);
+    ///
+    /// let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
+    /// hash_map.insert("foo".into(), "bar".into());
+    ///
+    /// assert_eq!(e, hash_map);
     /// ```
     pub fn insert<S1: Into<OsString>, S2: Into<OsString>>(mut self, key: S1, val: S2) -> Self {
-        self.vars.push((key.into(), val.into()));
+        self.vars.insert(key.into(), val.into());
+        self
+    }
+
+    /// Remove an entry from the variables in this environment object
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate environment;
+    ///
+    /// use std::ffi::OsString;
+    /// use std::collections::HashMap;
+    ///
+    /// let e = environment::Environment::empty().insert("foo", "bar").remove("foo").compile();
+    ///
+    /// let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
+    ///
+    /// assert_eq!(e, hash_map);
+    /// ```
+    pub fn remove<S: Into<OsString>>(mut self, key: S) -> Self {
+        self.vars.remove(&key.into());
         self
     }
 
     /// Compile Environment object
-    pub fn compile(self) -> Vec<(OsString, OsString)> {
+    pub fn compile(self) -> HashMap<OsString, OsString> {
         if self.inherit {
             ::std::env::vars_os().chain(self.vars).collect()
         } else {
@@ -141,9 +171,12 @@ mod test {
 
         let y = y.insert("key", "value");
 
+        let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
+        hash_map.insert("key".into(), "value".into());
+
         assert_eq!(
             y.compile(),
-            vec![(OsString::from("key"), OsString::from("value"))]
+            hash_map
         );
     }
 
@@ -170,9 +203,12 @@ mod test {
         // In-place modification while allowing later accesses to the `Environment`
         let y = Environment::empty();
 
+        let mut hash_map: HashMap<OsString, OsString> = HashMap::new();
+        hash_map.insert("key".into(), "value".into());
+
         assert_eq!(
             y.clone().insert("key", "value").compile(),
-            vec![(OsString::from("key"), OsString::from("value"))]
+            hash_map
         );
 
         let mut c = Command::new("printenv");
@@ -185,6 +221,19 @@ mod test {
         let output = String::from_utf8_lossy(&output.stdout);
 
         assert_eq!(output, "");
+    }
+
+    #[test]
+    fn removal() {
+        let e = Environment::empty()
+            .insert("key", "val")
+            .remove("key")
+            .compile();
+
+        assert_eq!(
+            e,
+            HashMap::new()
+        );
     }
 
     #[test]
@@ -209,6 +258,37 @@ mod test {
         let v = vec![("bar", "baz")];
 
         let e: Environment = v.into();
+
+        let mut c = Command::new("printenv");
+
+        let output = c.env_clear()
+            .envs(e.clone().compile())
+            .output()
+            .expect("failed to execute command");
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        assert!(output.contains("bar=baz"));
+
+        let mut c = Command::new("printenv");
+
+        let output = c.env_clear()
+            .envs(e.clone().insert("bar", "vv").compile())
+            .output()
+            .expect("failed to execute command");
+
+        let output = String::from_utf8_lossy(&output.stdout);
+
+        assert!(output.contains("bar=vv"));
+        assert!(!output.contains("bar=baz"));
+    }
+
+    #[test]
+    fn take_hash_map() {
+        let mut h = HashMap::new();
+        h.insert("bar", "baz");
+
+        let e: Environment = h.into();
 
         let mut c = Command::new("printenv");
 

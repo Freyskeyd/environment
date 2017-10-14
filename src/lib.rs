@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::collections::hash_map::Iter;
+use std::collections::hash_map::IterMut;
 use std::ffi::OsString;
 use std::iter::FromIterator;
 
@@ -99,6 +101,46 @@ impl Environment {
         self
     }
 
+    /// An iterator visiting all key-value pairs. The iterator element type is (key, value).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate environment;
+    ///
+    /// use std::ffi::OsString;
+    ///
+    /// let env = environment::Environment::empty().insert("FOO", "BAR");
+    ///
+    /// let mut iterator = env.iter();
+    ///
+    /// assert_eq!(iterator.next(), Some((&"FOO".into(), &"BAR".into())));
+    /// ```
+    pub fn iter(&self) -> Iter<OsString, OsString> {
+        self.vars.iter()
+    }
+
+    /// Returns an iterator that allows modifying each value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate environment;
+    ///
+    /// use std::ffi::OsString;
+    ///
+    /// let mut env = environment::Environment::empty().insert("FOO", "BAR");
+    ///
+    /// for (_, v) in env.iter_mut() {
+    ///     *v = OsString::from("BAZ");
+    /// }
+    ///
+    /// assert_eq!(env, vec![("FOO", "BAZ")].into());
+    /// ```
+    pub fn iter_mut(&mut self) -> IterMut<OsString, OsString> {
+        self.vars.iter_mut()
+    }
+
     /// Compile Environment object
     pub fn compile(self) -> HashMap<OsString, OsString> {
         self.vars
@@ -108,7 +150,14 @@ impl Environment {
 impl<T: ToString, Z: ToString> FromIterator<(T, Z)> for Environment {
     fn from_iter<I: IntoIterator<Item = (T, Z)>>(iter: I) -> Self {
         Self {
-            vars: iter.into_iter().map(|x| x.to_environment_tuple()).collect(),
+            vars: iter.into_iter()
+                .map(|x| {
+                    (
+                        OsString::from(x.0.to_string()),
+                        OsString::from(x.1.to_string()),
+                    )
+                })
+                .collect(),
             inherit: false,
         }
     }
@@ -116,10 +165,62 @@ impl<T: ToString, Z: ToString> FromIterator<(T, Z)> for Environment {
 
 impl<T: ToString, Z: ToString> Extend<(T, Z)> for Environment {
     fn extend<I: IntoIterator<Item = (T, Z)>>(&mut self, iter: I) {
-        self.vars
-            .extend(iter.into_iter().map(|x| x.to_environment_tuple()));
+        self.vars.extend(iter.into_iter().map(|x| {
+            (
+                OsString::from(x.0.to_string()),
+                OsString::from(x.1.to_string()),
+            )
+        }));
     }
 }
+
+impl IntoIterator for Environment {
+    type Item = (OsString, OsString);
+    type IntoIter = ::std::collections::hash_map::IntoIter<OsString, OsString>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.vars.into_iter()
+    }
+}
+
+macro_rules! __impl_from {
+    ($Lhs: ty) => {
+        impl<'a, A: ToString, B: ToString> From<$Lhs> for Environment {
+            #[inline]
+            fn from(v: $Lhs) -> Self {
+                Self {
+                    vars: v.iter().map(|&(ref k, ref v)| {
+                        (
+                            OsString::from(k.to_string()),
+                            OsString::from(v.to_string()),
+                        )
+                    }).collect(),
+                    inherit: false
+                }
+            }
+        }
+    }
+}
+
+__impl_from! { Vec<(A, B)> }
+__impl_from! { &'a Vec<(A, B)> }
+
+macro_rules! array_impls {
+    ($($N: expr)+) => {
+        $(
+            __impl_from! { [(A, B); $N] }
+            __impl_from! { &'a [(A, B); $N] }
+        )+
+    }
+}
+
+array_impls! {
+     0  1  2  3  4  5  6  7  8  9
+    10 11 12 13 14 15 16 17 18 19
+    20 21 22 23 24 25 26 27 28 29
+    30 31 32
+}
+
 
 /// Implicit clone for ergonomics
 impl<'a> From<&'a Environment> for Environment {
@@ -147,19 +248,6 @@ impl<'s, T: ToString, Z: ToString> EnvironmentItem for &'s (T, Z) {
             OsString::from(self.0.to_string()),
             OsString::from(self.1.to_string()),
         )
-    }
-}
-
-impl<'s, T> From<T> for Environment
-where
-    T: IntoIterator,
-    T::Item: EnvironmentItem,
-{
-    fn from(v: T) -> Self {
-        Self {
-            vars: v.into_iter().map(|k| k.to_environment_tuple()).collect(),
-            inherit: false,
-        }
     }
 }
 
@@ -328,5 +416,25 @@ mod test {
             .compile();
 
         assert_eq!(e, HashMap::new());
+    }
+
+    #[test]
+    fn iter_env() {
+        let env = Environment::inherit();
+
+        env.iter();
+    }
+    #[test]
+    fn into_iter_env() {
+        let env = Environment::inherit();
+
+        env.into_iter();
+    }
+
+    #[test]
+    fn iter_mut_env() {
+        let mut env = Environment::inherit();
+
+        env.iter_mut();
     }
 }

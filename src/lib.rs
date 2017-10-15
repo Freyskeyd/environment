@@ -38,7 +38,7 @@ impl Environment {
     /// ```
     pub fn inherit() -> Self {
         Self {
-            vars: HashMap::new(),
+            vars: ::std::env::vars_os().collect(),
             inherit: true,
         }
     }
@@ -79,13 +79,29 @@ impl Environment {
         self
     }
 
+    /// Remove an entry from the variables in this environment object
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate environment;
+    ///
+    /// use std::ffi::OsString;
+    /// use std::collections::HashMap;
+    ///
+    /// let e = environment::Environment::empty().insert("foo", "bar").remove("foo").compile();
+    ///
+    /// assert_eq!(e, HashMap::new());
+    /// ```
+    pub fn remove<S: Into<OsString>>(mut self, key: S) -> Self {
+        self.vars.remove(&key.into());
+
+        self
+    }
+
     /// Compile Environment object
     pub fn compile(self) -> HashMap<OsString, OsString> {
-        if self.inherit {
-            ::std::env::vars_os().chain(self.vars).collect()
-        } else {
-            self.vars
-        }
+        self.vars
     }
 }
 
@@ -302,5 +318,15 @@ mod test {
             .collect();
 
         assert_eq!(env.compile(), expected);
+    }
+
+    #[test]
+    fn remove_var() {
+        let e = Environment::empty()
+            .insert("foo", "bar")
+            .remove("foo")
+            .compile();
+
+        assert_eq!(e, HashMap::new());
     }
 }

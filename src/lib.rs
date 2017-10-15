@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::iter::FromIterator;
 
@@ -5,7 +6,7 @@ use std::iter::FromIterator;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Environment {
     /// Customized environment variables
-    vars: Vec<(OsString, OsString)>,
+    vars: HashMap<OsString, OsString>,
     /// Define if the structure must inherit
     inherit: bool,
 }
@@ -13,7 +14,7 @@ pub struct Environment {
 impl Default for Environment {
     fn default() -> Self {
         Self {
-            vars: vec![],
+            vars: HashMap::new(),
             inherit: false,
         }
     }
@@ -26,16 +27,18 @@ impl Environment {
     ///
     /// ```rust
     /// extern crate environment;
+    ///
     /// use std::ffi::OsString;
+    /// use std::collections::HashMap;
     ///
     /// let e = environment::Environment::inherit().compile();
-    /// let e_: Vec<(OsString, OsString)> = ::std::env::vars_os().collect();
+    /// let e_: HashMap<OsString, OsString> = ::std::env::vars_os().collect();
     ///
     /// assert_eq!(e, e_);
     /// ```
     pub fn inherit() -> Self {
         Self {
-            vars: vec![],
+            vars: HashMap::new(),
             inherit: true,
         }
     }
@@ -47,8 +50,10 @@ impl Environment {
     /// ```rust
     /// extern crate environment;
     ///
+    /// use std::collections::HashMap;
+    ///
     /// let e = environment::Environment::empty().compile();
-    /// assert_eq!(e, Vec::new());
+    /// assert_eq!(e, HashMap::new());
     /// ```
     pub fn empty() -> Self {
         Self::default()
@@ -61,18 +66,21 @@ impl Environment {
     /// ```rust
     /// extern crate environment;
     ///
+    /// use std::collections::HashMap;
     /// use std::ffi::OsString;
+    /// use std::iter::FromIterator;
     ///
     /// let e = environment::Environment::empty().insert("foo", "bar").compile();
-    /// assert_eq!(e, vec![(OsString::from("foo"), OsString::from("bar"))]);
+    /// assert_eq!(e, HashMap::from_iter(vec![(OsString::from("foo"), OsString::from("bar"))]));
     /// ```
     pub fn insert<S1: Into<OsString>, S2: Into<OsString>>(mut self, key: S1, val: S2) -> Self {
-        self.vars.push((key.into(), val.into()));
+        self.vars.insert(key.into(), val.into());
+
         self
     }
 
     /// Compile Environment object
-    pub fn compile(self) -> Vec<(OsString, OsString)> {
+    pub fn compile(self) -> HashMap<OsString, OsString> {
         if self.inherit {
             ::std::env::vars_os().chain(self.vars).collect()
         } else {
@@ -160,7 +168,7 @@ mod test {
 
         assert_eq!(
             y.compile(),
-            vec![(OsString::from("key"), OsString::from("value"))]
+            HashMap::from_iter(vec![(OsString::from("key"), OsString::from("value"))])
         );
     }
 
@@ -189,7 +197,7 @@ mod test {
 
         assert_eq!(
             y.clone().insert("key", "value").compile(),
-            vec![(OsString::from("key"), OsString::from("value"))]
+            HashMap::from_iter(vec![(OsString::from("key"), OsString::from("value"))])
         );
 
         let mut c = Command::new("printenv");
@@ -264,15 +272,17 @@ mod test {
 
         let env = Environment::from_iter(iter);
 
-        let expected: Vec<(OsString, OsString)> = vec![
-            ("KEY_0", "0"),
-            ("KEY_1", "1"),
-            ("KEY_2", "2"),
-            ("KEY_3", "3"),
-            ("KEY_4", "4"),
-        ].into_iter()
-            .map(|x| (x.0.into(), x.1.into()))
-            .collect();
+        let expected: HashMap<OsString, OsString> = HashMap::from_iter(
+            vec![
+                ("KEY_0", "0"),
+                ("KEY_1", "1"),
+                ("KEY_2", "2"),
+                ("KEY_3", "3"),
+                ("KEY_4", "4"),
+            ].into_iter()
+                .map(|x| (x.0.into(), x.1.into()))
+                .collect::<Vec<_>>(),
+        );
 
         assert_eq!(env.compile(), expected);
     }
@@ -286,7 +296,7 @@ mod test {
 
         env.extend(v2.clone());
 
-        let expected: Vec<(OsString, OsString)> = v.into_iter()
+        let expected: HashMap<OsString, OsString> = v.into_iter()
             .chain(v2)
             .map(|x| (x.0.into(), x.1.into()))
             .collect();

@@ -9,15 +9,12 @@ use std::iter::FromIterator;
 pub struct Environment {
     /// Customized environment variables
     vars: HashMap<OsString, OsString>,
-    /// Define if the structure must inherit
-    inherit: bool,
 }
 
 impl Default for Environment {
     fn default() -> Self {
         Self {
             vars: HashMap::new(),
-            inherit: false,
         }
     }
 }
@@ -41,7 +38,6 @@ impl Environment {
     pub fn inherit() -> Self {
         Self {
             vars: ::std::env::vars_os().collect(),
-            inherit: true,
         }
     }
 
@@ -158,7 +154,6 @@ impl<T: ToString, Z: ToString> FromIterator<(T, Z)> for Environment {
                     )
                 })
                 .collect(),
-            inherit: false,
         }
     }
 }
@@ -195,7 +190,6 @@ macro_rules! __impl_from {
                             OsString::from(v.to_string()),
                         )
                     }).collect(),
-                    inherit: false
                 }
             }
         }
